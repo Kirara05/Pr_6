@@ -1,23 +1,45 @@
-from sqlmodel import SQLModel, Session, create_engine
-from models.events import Event
-
-# Название файла базы данных
-database_file = "planner.db"
-database_connection_string = f"sqlite:///{database_file}"
-
-# Для SQLite отключаем проверку потоков
-connect_args = {"check_same_thread": False}
-engine_url = create_engine(
-    database_connection_string, echo=True, connect_args=connect_args
-)
+from pydantic_settings import BaseSettings
+from pydantic import BaseModel
+from typing import Optional, Any, List
+from beanie import PydanticObjectId
 
 
-# Функция создания таблиц при старте
-def conn():
-    SQLModel.metadata.create_all(engine_url)
+class Settings(BaseSettings):
+    DATABASE_URL: Optional[str] = "mongodb://localhost:27017/planner"
+
+    class Config:
+        env_file = ".env"
 
 
-# Генератор сессий для маршрутов
-def get_session():
-    with Session(engine_url) as session:
-        yield session
+class Database:
+    def __init__(self, model):
+        self.model = model
+
+    async def save(self, document) -> None:
+        await document.create()
+
+    async def get(self, id: PydanticObjectId) -> Any:
+        doc = await self.model.get(id)
+        if doc:
+            return doc
+        return False
+
+    async def get_all(self) -> List[Any]:
+        docs = await self.model.find_all().to_list()
+        return docs
+
+    async def update(self, id: PydanticObjectId, body: BaseModel) -> Any:
+        doc = await self.get(id)
+        if not doc:
+            return False
+        des_body = body.model_dump(exclude_unset=True)
+        update_query = {"$set": {field: value for field, value in des_body.items()}}
+        await doc.update(update_query)
+        return doc
+
+    async def delete(self, id: PydanticObjectId) -> bool:
+        doc = await self.get(id)
+        if not doc:
+            return False
+        await doc.delete()
+        return True

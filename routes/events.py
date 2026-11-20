@@ -1,70 +1,52 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import select, Session
-from database.connection import get_session
+from fastapi import APIRouter, HTTPException, status
+from beanie import PydanticObjectId
+from database.connection import Database
 from models.events import Event, EventUpdate
 from typing import List
 
 event_router = APIRouter(tags=["Events"])
+event_database = Database(Event)
 
 
-# 1. CREATE: Сохранение нового события в БД
-@event_router.post("/new", status_code=status.HTTP_201_CREATED)
-async def create_event(
-    new_event: Event, session: Session = Depends(get_session)
-) -> dict:
-    session.add(new_event)
-    session.commit()
-    session.refresh(new_event)
-    return {"message": "Событие успешно сохранено в SQLite!"}
-
-
-# 2. READ: Получение всех событий из БД
 @event_router.get("/", response_model=List[Event])
-async def retrieve_all_events(session: Session = Depends(get_session)) -> List[Event]:
-    statement = select(Event)
-    events = session.exec(statement).all()
-    return events
+async def retrieve_all_events() -> List[Event]:
+    return await event_database.get_all()
 
 
-# 3. READ: Получение события по ID из БД
 @event_router.get("/{id}", response_model=Event)
-async def retrieve_event(id: int, session: Session = Depends(get_session)) -> Event:
-    event = session.get(Event, id)
+async def retrieve_event(id: PydanticObjectId) -> Event:
+    event = await event_database.get(id)
     if not event:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Событие с указанным ID не найдено!",
+            detail="Событие с указанным ID не найдено",
         )
     return event
 
 
-# 4. UPDATE: Обновление события в БД
-@event_router.put("/edit/{id}", response_model=Event)
-async def update_event(
-    id: int, new_data: EventUpdate, session: Session = Depends(get_session)
-) -> Event:
-    event = session.get(Event, id)
-    if not event:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено!"
-        )
-    event_data = new_data.model_dump(exclude_unset=True)
-    for key, value in event_data.items():
-        setattr(event, key, value)
-    session.add(event)
-    session.commit()
-    session.refresh(event)
-    return event
+@event_router.post("/new", status_code=status.HTTP_201_CREATED)
+async def create_event(body: Event) -> dict:
+    await event_database.save(body)
+    return {"message": "Событие успешно создано"}
 
 
-# 5. DELETE: Удаление события из БД
-@event_router.delete("/delete/{id}")
-async def delete_event(id: int, session: Session = Depends(get_session)) -> dict:
-    event = session.get(Event, id)
-    if not event:
+@event_router.put("/{id}", response_model=Event)
+async def update_event(id: PydanticObjectId, body: EventUpdate) -> Event:
+    updated_event = await event_database.update(id, body)
+    if not updated_event:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено!"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Событие с указанным ID не найдено",
         )
-    session.delete(event)
-    session.commit()
-    return {"message": "Событие успешно удалено из БД!"}
+    return updated_event
+
+
+@event_router.delete("/{id}")
+async def delete_event(id: PydanticObjectId) -> dict:
+    deleted = await event_database.delete(id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Событие с указанным ID не найдено",
+        )
+    return {"message": "Событие успешно удалено"}

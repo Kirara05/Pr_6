@@ -1,32 +1,34 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
+from beanie import Document
+from pydantic import BaseModel
+from typing import Optional, List
 
 
 # 1. Модель таблицы в БД
-class Event(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
+class Event(Document):
     title: str
     image: str | None = None
     description: str
-    tags: str | None = None
+    tags: List[str] | None = None
     location: str | None = None
+
+    class Settings:
+        name = "events"
 
     class Config:
         json_schema_extra = {
             "example": {
-                "id": 1,
-                "title": "Открытие фестиваля",
-                "image": "https://linktomyimage.com/image.png",
-                "description": "Презентация и открытие главной сцены фестиваля",
-                "tags": "festival, music, open-air",
-                "location": "Главная сцена",
+                "title": "Презентация книги",
+                "image": "https://site.com/image.png",
+                "description": "Обсуждение книги по разработке API",
+                "tags": ["python", "fastapi", "book"],
+                "location": "Конференц-зал",
             }
         }
 
 
-class EventUpdate(SQLModel):
+class EventUpdate(BaseModel):
     title: Optional[str] = None
     image: Optional[str] = None
     description: Optional[str] = None
-    tags: Optional[str] = None
+    tags: Optional[List[str]] = None
     location: Optional[str] = None
