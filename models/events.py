@@ -3,13 +3,12 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 
-# 1. Модель таблицы в БД
 class Event(Document):
     title: str
-    image: str | None = None
-    description: str
-    tags: List[str] | None = None
-    location: str | None = None
+    image: Optional[str] = ""
+    description: Optional[str] = ""
+    tags: Optional[List[str]] = []
+    location: Optional[str] = ""
 
     class Settings:
         name = "events"

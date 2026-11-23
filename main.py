@@ -7,9 +7,10 @@ from models.events import Event
 from models.users import User
 from routes.users import user_router
 from routes.events import event_router
+from routes.web import web_router
 import uvicorn
 
-# Заглушка, исправляющая баг библиотеки Beanie с append_metadata
+# Заглушка совместимости Beanie и Motor
 motor.motor_asyncio.AsyncIOMotorClient.append_metadata = (
     lambda self, *args, **kwargs: None
 )
@@ -28,6 +29,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Event Planner", lifespan=lifespan)
 
+app.include_router(web_router)
 app.include_router(user_router, prefix="/user")
 app.include_router(event_router, prefix="/event")
 
